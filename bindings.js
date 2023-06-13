@@ -170,7 +170,7 @@ exports.getFileName = function getFileName(calling_file) {
 
   // run the 'prepareStackTrace' function above
   Error.captureStackTrace(dummy);
-  dummy.stack;
+  new Error(dummy.stack);
 
   // cleanup
   Error.prepareStackTrace = origPST;
