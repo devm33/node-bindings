@@ -80,7 +80,10 @@ function bindings(opts) {
 
   // Get the module root
   if (!opts.module_root) {
-    opts.module_root = exports.getRoot(exports.getFileName());
+    // Instead of using an error trace to find the calling file:
+    // opts.module_root = exports.getRoot(exports.getFileName());
+    // Use the webpack __filename:
+    opts.module_root = exports.getRoot(__filename);
   }
 
   // Ensure the given bindings name ends with .node
