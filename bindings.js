@@ -4,7 +4,6 @@
 
 var fs = require('fs'),
   path = require('path'),
-  fileURLToPath = require('file-uri-to-path'),
   join = path.join,
   dirname = path.dirname,
   exists =
@@ -50,21 +49,12 @@ var fs = require('fs'),
       // Production "Release" buildtype binary (meh...)
       ['module_root', 'compiled', 'version', 'platform', 'arch', 'bindings'],
       ['module_root', 'compiled', 'platform', 'arch', 'bindings'],
-      // node-qbs builds
-      ['module_root', 'addon-build', 'release', 'install-root', 'bindings'],
-      ['module_root', 'addon-build', 'debug', 'install-root', 'bindings'],
-      ['module_root', 'addon-build', 'default', 'install-root', 'bindings'],
-      // node-pre-gyp path ./lib/binding/{node_abi}-{platform}-{arch}
-      ['module_root', 'lib', 'binding', 'nodePreGyp', 'bindings']
     ]
   };
 
 /**
  * The main `bindings()` function loads the compiled bindings for a given module.
- * It uses V8's Error API to determine the parent filename that this function is
- * being invoked from, which is then used to find the root directory.
  */
-
 function bindings(opts) {
   // Argument surgery
   if (typeof opts == 'string') {
@@ -80,10 +70,7 @@ function bindings(opts) {
 
   // Get the module root
   if (!opts.module_root) {
-    // Instead of using an error trace to find the calling file:
-    // opts.module_root = exports.getRoot(exports.getFileName());
-    // Use the webpack __filename as the root directory:
-    opts.module_root = dirname(__filename);
+    opts.module_root = getRoot(__filename);
   }
 
   // Ensure the given bindings name ends with .node
@@ -140,64 +127,14 @@ function bindings(opts) {
   err.tries = tries;
   throw err;
 }
-module.exports = exports = bindings;
-
-/**
- * Gets the filename of the JavaScript file that invokes this function.
- * Used to help find the root directory of a module.
- * Optionally accepts an filename argument to skip when searching for the invoking filename
- */
-
-exports.getFileName = function getFileName(calling_file) {
-  var origPST = Error.prepareStackTrace,
-    origSTL = Error.stackTraceLimit,
-    dummy = {},
-    fileName;
-
-  Error.stackTraceLimit = 10;
-
-  Error.prepareStackTrace = function(e, st) {
-    for (var i = 0, l = st.length; i < l; i++) {
-      fileName = st[i].getFileName();
-      if (fileName !== __filename) {
-        if (calling_file) {
-          if (fileName !== calling_file) {
-            return;
-          }
-        } else {
-          return;
-        }
-      }
-    }
-  };
-
-  // run the 'prepareStackTrace' function above
-  Error.captureStackTrace(dummy);
-  new Error(dummy.stack);
-
-  // cleanup
-  Error.prepareStackTrace = origPST;
-  Error.stackTraceLimit = origSTL;
-
-  // handle filename that starts with "file://"
-  var fileSchema = 'file://';
-  if (fileName.indexOf(fileSchema) === 0) {
-    fileName = fileURLToPath(fileName);
-  }
-
-  return fileName;
-};
+module.exports = bindings;
 
 /**
  * Gets the root directory of a module, given an arbitrary filename
  * somewhere in the module tree. The "root directory" is the directory
- * containing the `package.json` file.
- *
- *   In:  /home/nate/node-native-module/lib/index.js
- *   Out: /home/nate/node-native-module
+ * containing either a 'dist' or a 'compiled' directory.
  */
-
-exports.getRoot = function getRoot(file) {
+function getRoot(file) {
   var dir = dirname(file),
     prev;
   while (true) {
@@ -205,11 +142,12 @@ exports.getRoot = function getRoot(file) {
       // Avoids an infinite loop in rare cases, like the REPL
       dir = process.cwd();
     }
-    if (
-      exists(join(dir, 'package.json')) ||
-      exists(join(dir, 'node_modules'))
-    ) {
-      // Found the 'package.json' file or 'node_modules' dir; we're done
+    if (exists(join(dir, 'dist'))) {
+      // Found the 'dist' dir; step into it and done
+      return join(dir, 'dist');
+    }
+    if (exists(join(dir, 'compiled'))) {
+      // Found the 'compiled' dir; we're done
       return dir;
     }
     if (prev === dir) {
@@ -217,7 +155,7 @@ exports.getRoot = function getRoot(file) {
       throw new Error(
         'Could not find module root given file: "' +
           file +
-          '". Do you have a `package.json` file? '
+          '". Do you have a `dist` or `compiled` directory? '
       );
     }
     // Try the parent dir next
