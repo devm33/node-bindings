@@ -1,5 +1,5 @@
 {
-  "name": "@devm33/bindings",
+  "name": "bundled-bindings",
   "description": "Helper module for loading your native module's .node file",
   "keywords": [
     "native",

@@ -1,4 +1,4 @@
-[@devm33/bindings](https://www.npmjs.com/package/@devm33/bindings)
+[bundled-bindings](https://www.npmjs.com/package/bundled-bindings)
 =============
 
 Fork of [node-bindings](https://github.com/TooTallNate/node-bindings),
